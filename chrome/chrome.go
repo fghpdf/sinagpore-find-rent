@@ -58,7 +58,6 @@ type Facility struct {
 func Run() {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.UserAgent(uarand.GetRandom()),
-		chromedp.Flag("headless", false),
 	)
 
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
@@ -84,14 +83,24 @@ func RunWithRemote() {
 
 func run(ctx context.Context) {
 	// create a timeout
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
-
-	condoUrls := analyzeCondoList(ctx, "https://condo.singaporeexpats.com/name/0-9")
-
-	log.WithField("condo number", len(condoUrls)).Info("need to analyze")
+	dirUrls := analyzeDirectory(ctx, "https://condo.singaporeexpats.com/%sname/c")
+	if len(dirUrls) == 0 {
+		log.Fatalln("no condo")
+	}
 
 	var wg sync.WaitGroup
+
+	condoUrls := make([]string, 0)
+	for _, dirUrl := range dirUrls {
+		wg.Add(1)
+		go analyzeCondoList(ctx, dirUrl, &wg, &condoUrls)
+	}
+
+	wg.Wait()
+
+	log.WithField("condo number", len(condoUrls)).Info("need to analyze")
 
 	condos := make([]*Condo, 0)
 	for _, condoUrl := range condoUrls {

@@ -22,7 +22,8 @@ func analyzeCondo(ctx context.Context, condoUrl string, wg *sync.WaitGroup, cond
 
 	c := &Condo{Url: condoUrl}
 	facilities := make([]string, 0)
-	var nodes []*cdp.Node
+	var leftNodes []*cdp.Node
+	var rightNodes []*cdp.Node
 
 	ctxNew, _ := chromedp.NewContext(ctx)
 
@@ -38,18 +39,29 @@ func analyzeCondo(ctx context.Context, condoUrl string, wg *sync.WaitGroup, cond
 		chromedp.Text(`div.propertytitlecontainer > div.propcol1 > :nth-child(4)`, &c.Tenure),
 		// developer
 		chromedp.Text(`div.propertytitlecontainer > div.propcol1 > :nth-child(5)`, &c.Developer),
-		chromedp.Nodes(`div#tabs-property-facilities > :nth-child(2) > ul > li`, &nodes, chromedp.ByQueryAll),
+		chromedp.Nodes(`div#tabs-property-facilities > :nth-child(2) > ul > li`, &leftNodes, chromedp.ByQueryAll, chromedp.AtLeast(0)),
+		chromedp.Nodes(`div#tabs-property-facilities > :nth-child(3) > ul > li`, &rightNodes, chromedp.ByQueryAll, chromedp.AtLeast(0)),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var fac string
 			var facStr string
-			for i := 1; i <= len(nodes); i++ {
+			for i := 1; i <= len(leftNodes); i++ {
 				sel := fmt.Sprintf("div#tabs-property-facilities > :nth-child(2) > ul > :nth-child(%d)", i)
 				err := chromedp.Text(sel, &fac).Do(ctx)
 				if err != nil {
 					return err
 				}
 				facilities = append(facilities, fac)
-				facStr += fac
+				facStr += fmt.Sprintf("| %s", fac)
+			}
+
+			for i := 1; i < len(rightNodes); i++ {
+				sel := fmt.Sprintf("div#tabs-property-facilities > :nth-child(3) > ul > :nth-child(%d)", i)
+				err := chromedp.Text(sel, &fac).Do(ctx)
+				if err != nil {
+					return err
+				}
+				facilities = append(facilities, fac)
+				facStr += fmt.Sprintf("| %s", fac)
 			}
 
 			c.FacString = facStr
@@ -58,7 +70,7 @@ func analyzeCondo(ctx context.Context, condoUrl string, wg *sync.WaitGroup, cond
 		}),
 	)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("analyze condo %v", err)
 		return
 	}
 
