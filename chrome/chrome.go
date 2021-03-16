@@ -50,9 +50,12 @@ type Facility struct {
 	Security bool `bson:"security"`
 }
 
+const directoryUrlTpl = "https://condo.singaporeexpats.com/%sname/"
+
 func Run() {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.UserAgent(uarand.GetRandom()),
+		//chromedp.Flag("headless", false),
 	)
 
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
@@ -78,9 +81,12 @@ func RunWithRemote() {
 
 func run(ctx context.Context) {
 	// create a timeout
-	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 100*time.Second)
 	defer cancel()
-	dirUrls := analyzeDirectory(ctx, "https://condo.singaporeexpats.com/%sname/c")
+
+	// TODO: 8 16
+	dirUrls := analyzeDirectory(ctx, getDirectoryUrls()[16])
+	log.Infof("dirUrls %d\n", len(dirUrls))
 	if len(dirUrls) == 0 {
 		log.Fatalln("no condo")
 	}
@@ -97,7 +103,7 @@ func run(ctx context.Context) {
 
 	log.WithField("condo number", len(condoUrls)).Info("need to analyze")
 
-	condos := loopAnalyzeCondo(ctx, condoUrls, 10)
+	condos := loopAnalyzeCondo(ctx, condoUrls, 20)
 
 	wg.Wait()
 
@@ -119,4 +125,18 @@ func run(ctx context.Context) {
 		}
 	}
 
+}
+
+func getDirectoryUrls() []string {
+	urls := []string{directoryUrlTpl + "0-9"}
+
+	for i := 1; i <= 26; i++ {
+		urls = append(urls, directoryUrlTpl+toCharStr(i))
+	}
+
+	return urls
+}
+
+func toCharStr(i int) string {
+	return string(rune('A' - 1 + i))
 }
